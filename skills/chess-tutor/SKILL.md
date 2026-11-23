@@ -32,7 +32,7 @@ This skill folder is installed either as a Claude Code plugin or copied into a p
 
 **1. Locate the script.** Use this skill's base directory (shown when the skill loads; for a mode skill it is `<skills dir>/<mode>`, so this folder is `../chess-tutor`). The script is `<skills dir>/chess-tutor/scripts/chess_ops.py`; resolve it to an absolute path. If you can't tell where the skills are installed, find it with a glob for `**/chess-tutor/scripts/chess_ops.py` in the project's `.claude/skills` and in `~/.claude`. Do this once per session and reuse the path.
 
-**2. Pick a Python.** Any Python 3.9+ (tested on 3.11). Try `python3 --version`, then `python --version`, then `py -3 --version` (Windows). On Windows, bare `python` can be a Microsoft Store stub that prints nothing or opens the Store: skip it. Call the working interpreter `<python>`.
+**2. Pick a Python.** Any Python 3.10+ (tested on 3.11; `resvg-py` needs 3.10 or newer). Try `python3 --version`, then `python --version`, then `py -3 --version` (Windows). On Windows, bare `python` can be a Microsoft Store stub that prints nothing or opens the Store: skip it. Call the working interpreter `<python>`.
 
 **3. Install the dependencies** (pinned in `requirements.txt` next to the script: `chess` and `resvg-py`; no Cairo needed). If the script exits with code 3 and "python-chess is not installed", run the exact `pip install` command it prints. If pip refuses because the environment is externally managed, create a venv and use its interpreter from then on:
 

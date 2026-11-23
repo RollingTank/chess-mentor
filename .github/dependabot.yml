@@ -1,0 +1,26 @@
+version: 2
+updates:
+  # Keep the workflow actions current.
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "ci"
+
+  # The pinned runtime dependencies (python-chess, resvg-py). CI runs the full suite on every bump, and a
+  # contract test fails if the installed python-chess differs from the pin.
+  - package-ecosystem: pip
+    directory: "/skills/chess-tutor"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "deps"
+
+  # Test tooling (pytest, PyYAML).
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "deps(dev)"

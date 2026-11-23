@@ -37,11 +37,15 @@ First release.
 - Stockfish is found on `PATH` automatically; the script prints the exact install command when its
   Python packages are missing.
 - Licensed under GPL-3.0-or-later.
+- GitHub Actions CI (tests on Ubuntu, Windows and macOS with Python 3.10 and 3.13; real-Stockfish integration tests;
+  plugin validation), a tag-driven release workflow that verifies tag, manifests and changelog before publishing a
+  GitHub Release with a skills bundle, and Dependabot for actions and pinned dependencies.
 - pytest suite of about 360 tests (unit, component with a stub engine, integration against a real Stockfish, and
   contract tests that keep the skills, manifests, README and CLI consistent); about 99% line coverage of
   `chess_ops.py` before counting the real-engine tests.
 
 ### Known limitations
+- Requires Python 3.10 or newer (the pinned PNG renderer `resvg-py` does not support 3.9).
 - Tested end to end on Windows with Stockfish 19. The skills' conversational flows (especially
   `/teach-chess` on a real book PDF) have had limited real-session testing.
 - Stockfish's Elo limiter does not go below 1320.
