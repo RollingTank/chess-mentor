@@ -1,0 +1,24 @@
+{
+  "name": "chess-mentor",
+  "owner": {
+    "name": "RollingTank"
+  },
+  "plugins": [
+    {
+      "name": "chess-mentor",
+      "source": "./",
+      "description": "Chess coaching with Stockfish: /init-chess builds your profile and training plan from your games and books, /teach-chess from your books, /play-chess coached games, /analyze-chess move-by-move game reviews.",
+      "version": "0.1.0",
+      "license": "GPL-3.0-or-later",
+      "category": "education",
+      "keywords": [
+        "chess",
+        "stockfish",
+        "tutor"
+      ]
+    }
+  ],
+  "metadata": {
+    "description": "Chess coaching skills for Claude Code: teach from your own chess books, play coached games against Stockfish, and review your games move by move."
+  }
+}

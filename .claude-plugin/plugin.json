@@ -1,0 +1,8 @@
+{
+  "name": "chess-mentor",
+  "version": "0.1.0",
+  "author": { "name": "RollingTank" },
+  "description": "A chess mentor for Claude Code: a profile and training plan built from your own games and books (/init-chess), Socratic lessons from your chess books (/teach-chess), instructive games against Stockfish (/play-chess), and move-by-move game analysis (/analyze-chess), with a progress record of your strengths, weaknesses and estimated rating.",
+  "license": "GPL-3.0-or-later",
+  "keywords": ["chess", "stockfish", "tutor", "coaching", "education", "skills"]
+}

@@ -1,0 +1,9 @@
+/stockfish
+/.venv
+
+# Personal progress, games and rendered boards (created wherever the skills run)
+chess_data/
+
+__pycache__/
+*.pyc
+.claude/settings.local.json
