@@ -205,8 +205,8 @@ def status(board, img, note=""):
     print("Image:", img.resolve())
 
 
-def parse_move(board, text):
-    """Accept SAN, UCI, and sloppy typing: 0-0 / o-o, lowercase piece letters (nf3)."""
+def try_move(board, text):
+    """A legal Move from SAN, UCI or sloppy typing (0-0 / o-o, lowercase piece letters), else None."""
     text = text.strip()
     candidates = [text]
     if text.lower() in ("o-o", "0-0", "o-o-o", "0-0-0"):
@@ -221,8 +221,16 @@ def parse_move(board, text):
     try:
         return board.parse_uci(text.lower())
     except ValueError:
+        return None
+
+
+def parse_move(board, text):
+    """Accept SAN, UCI, and sloppy typing: 0-0 / o-o, lowercase piece letters (nf3)."""
+    mv = try_move(board, text)
+    if mv is None:
         legal = ", ".join(board.san(m) for m in board.legal_moves)
         die(f"'{text}' is not a legal move here. Legal moves: {legal}")
+    return mv
 
 
 # ---------------------------------------------------------------- evaluation
@@ -386,6 +394,120 @@ def cmd_review(a):
     label = "best" if mv == best_move else classify(loss)
     print(f"Move: {played_san}  verdict: {label}  (loss ~{loss} cp)")
     print(f"Best was: {best_san}   line: {best_line}   eval {fmt_score(best['score'])}")
+
+
+def parse_line(board, text):
+    """Replay a book line such as "1.Qxh7+ Kxh7 2.Ng5+!" from `board`.
+
+    Returns (moves, error). Move numbers, annotation glyphs (! ?) and results are ignored. Anything that is
+    not legal at that point is an error, so a mis-transcribed book line can never become an "answer".
+    """
+    if "(" in text or ")" in text or "{" in text:
+        return [], "variations and comments are not supported; pass just the main line"
+    b = board.copy(stack=False)
+    moves, played = [], []
+    for tok in re.sub(r"\d+\.+", " ", text).split():
+        tok = tok.rstrip("!?")
+        if not tok or tok in ("...", "e.p.", "1-0", "0-1", "1/2-1/2", "*") or tok.startswith("$"):
+            continue
+        mv = try_move(b, tok)
+        if mv is None:
+            after = f" after {' '.join(played)}" if played else ""
+            return moves, f"{tok!r} is not a legal move{after}"
+        played.append(b.san(mv))
+        moves.append(mv)
+        b.push(mv)
+    return (moves, None) if moves else ([], "no moves found in the book line")
+
+
+def cmd_verdict(a):
+    """The authoritative answer for a position. A book's stated continuation always outranks the engine;
+    with no book line the engine decides; with neither, refuse (never guess)."""
+    board = parse_fen(a.fen) if a.fen else load_game()[1]
+    if board.is_game_over():
+        die("this position is already over (checkmate, stalemate or a drawn position), so there is no move to evaluate")
+    side = board.turn
+    book = []
+    if a.book:
+        book, err = parse_line(board, a.book)
+        if err:
+            die(f"the book line is not legal from this position: {err}. Check the FEN and the transcription; "
+                "do not use this line.")
+    engine_ok = bool(find_stockfish(load_config()))
+    if not book and not engine_ok:
+        die("NO REFERENCE: no book line was given and no engine is available, so this position cannot be "
+            "evaluated. Say so to the user; do not judge it yourself.")
+    user = None
+    if a.user:
+        user = try_move(board, a.user)
+        if user is None:
+            die(f"the user's move {a.user!r} is not legal here")
+
+    best = book_info = user_info = None
+    infos = []
+    if engine_ok:
+        lim = limit(a)
+        with open_engine() as eng:
+            infos = eng.analyse(board, lim, multipv=a.multipv)
+            best = infos[0]
+            if book:
+                book_info = eng.analyse(board, lim, root_moves=[book[0]])
+            if user:
+                user_info = eng.analyse(board, lim, root_moves=[user])
+    limit_text = f"depth {a.depth}" if a.depth else f"{a.time}s"
+
+    def loss_of(info):
+        return max(0, cp(best, side) - cp(info, side))
+
+    print(f"POSITION: {board.fen()}   ({'White' if side else 'Black'} to move)")
+    if book:
+        src = f" ({a.source})" if a.source else ""
+        print(f"REFERENCE: BOOK{src}")
+        print(f"BOOK LINE: {board.variation_san(book)}")
+    else:
+        print(f"REFERENCE: ENGINE (Stockfish, {limit_text}); no book line was given")
+    if engine_ok:
+        print("ENGINE (evals are from White's point of view):")
+        for i, info in enumerate(infos, 1):
+            pv = info.get("pv", [])
+            print(f"  {i}. {fmt_score(info['score'])}  {board.variation_san(pv[:6]) if pv else ''}")
+    if book:
+        if not engine_ok:
+            print("ENGINE vs BOOK: engine unavailable, so the book stands on its own (cite it).")
+        else:
+            best_move = best["pv"][0]
+            lost = loss_of(book_info)
+            if book[0] == best_move:
+                print("ENGINE vs BOOK: AGREE. The book move is the engine's first choice.")
+            elif lost <= 30:
+                print(f"ENGINE vs BOOK: AGREE (close). The engine rates the book move within {lost} cp of its best, "
+                      f"{board.san(best_move)}.")
+            else:
+                print(f"ENGINE vs BOOK: CONFLICT. The engine prefers {board.san(best_move)} "
+                      f"({fmt_score(best['score'])}) and rates the book move {lost} cp lower. THE BOOK STANDS: "
+                      "use the book's move as the answer. Mention the disagreement once, briefly; do not call the "
+                      "book wrong or steer the user toward the engine's move.")
+        print(f"ANSWER (reference: BOOK{' ' + a.source if a.source else ''}): {board.san(book[0])}   "
+              f"line: {board.variation_san(book)}")
+    else:
+        print(f"ANSWER (reference: ENGINE, {limit_text}): {board.san(best['pv'][0])}   eval {fmt_score(best['score'])}   "
+              f"line: {board.variation_san(best['pv'][:6])}")
+    if user:
+        san = board.san(user)
+        if book:
+            if user == book[0]:
+                print(f"USER: {san} MATCHES the book's move. Graded against the book.")
+            else:
+                print(f"USER: {san} DIFFERS from the book's move {board.san(book[0])}. Grade against the book.")
+            if engine_ok:
+                lost = loss_of(user_info)
+                print(f"  For information only: Stockfish rates {san} "
+                      + ("as its best move." if user == best["pv"][0] else f"{lost} cp below its best."))
+        elif user == best["pv"][0]:
+            print(f"USER: {san} MATCHES the engine's best move.")
+        else:
+            lost = loss_of(user_info)
+            print(f"USER: {san} is {classify(lost)} (-{lost} cp vs the engine's {board.san(best['pv'][0])}).")
 
 
 def pgn_offsets(p):
@@ -1228,6 +1350,15 @@ def main():
     p.add_argument("--min-ply", type=int, default=20, help="ignore games shorter than this many plies for the sample")
     p.add_argument("--max-games", type=int, default=3000, help="cap on games read (most recent kept; default 3000)")
     p.add_argument("--no-history", action="store_true", help="don't record the sampled games in analyses.jsonl")
+
+    p = add("verdict", cmd_verdict, help="the authoritative answer for a position: a book's stated continuation first, "
+                                         "then Stockfish; refuses to guess when it has neither")
+    p.add_argument("--fen", help="the position (default: the current game)")
+    p.add_argument("--book", help="the continuation the book explicitly gives, e.g. \"1.Qxh7+ Kxh7 2.Ng5+\" (checked for legality)")
+    p.add_argument("--source", help="citation for the book line, e.g. \"Silman, ch. 3 p. 41\"")
+    p.add_argument("--user", help="the user's answer, to grade against the reference")
+    p.add_argument("--multipv", type=int, default=3)
+    engine_limits(p)
 
     p = add("undo", cmd_undo, help="take back half-moves"); p.add_argument("n", type=int, nargs="?", default=1)
 

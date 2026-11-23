@@ -197,3 +197,29 @@ class TestProfile:
         out = real("discover", real.tmp / "proj").out
         assert "my games/" in out and "Endgames.pdf" in out
         assert real("profile", real.tmp / "proj" / "my games", "--engine-games", "0").code == 0
+
+
+class TestVerdictWithRealEngine:
+    HANGS = "4k3/8/8/3q4/8/8/8/3QK3 w - - 0 1"
+
+    def test_book_stands_even_when_stockfish_strongly_disagrees(self, real):
+        """The 'book' recommends Qd4, which hangs the queen. Stockfish knows better; the book still wins."""
+        r = real("verdict", "--fen", self.HANGS, "--book", "1.Qd4", "--source", "Old Book p.1", "--depth", "10", "--user", "Qxd5")
+        assert r.code == 0, r
+        assert "ENGINE vs BOOK: CONFLICT" in r.out and "THE BOOK STANDS" in r.out
+        assert "ANSWER (reference: BOOK Old Book p.1): Qd4" in r.out
+        assert "DIFFERS from the book's move Qd4" in r.out and "Stockfish rates Qxd5 as its best move" in r.out
+
+    def test_agreement_between_book_and_engine(self, real):
+        r = real("verdict", "--fen", self.HANGS, "--book", "1.Qxd5", "--depth", "10")
+        assert "ENGINE vs BOOK: AGREE" in r.out and "ANSWER (reference: BOOK): Qxd5" in r.out
+
+    def test_engine_decides_only_when_there_is_no_book_line(self, real):
+        r = real("verdict", "--fen", self.HANGS, "--depth", "10", "--user", "Qd4")
+        assert "REFERENCE: ENGINE" in r.out and "ANSWER (reference: ENGINE, depth 10): Qxd5" in r.out
+        assert "USER: Qd4 is blunder" in r.out
+
+    def test_a_dubious_opening_book_line_is_still_the_answer(self, real):
+        r = real("verdict", "--fen", chess.STARTING_FEN, "--book", "1.g4 d5 2.Bg2", "--depth", "10")
+        assert r.code == 0 and "ANSWER (reference: BOOK): g4" in r.out
+

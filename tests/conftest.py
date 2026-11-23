@@ -73,10 +73,12 @@ class StubEngine:
         return sum(self.VALUES.get(p.piece_type, 0) * (1 if p.color == chess.WHITE else -1)
                    for p in board.piece_map().values())
 
-    def _ranked(self, board):
+    def _ranked(self, board, root_moves=None):
         """[(score from side-to-move POV as chess.engine score, sort key, move)], best first."""
         out = []
         for mv in board.legal_moves:
+            if root_moves is not None and mv not in root_moves:
+                continue
             board.push(mv)
             if board.is_checkmate():
                 mate_for_mover = True
@@ -92,9 +94,9 @@ class StubEngine:
         out.sort(key=lambda t: -t[1])
         return out
 
-    def analyse(self, board, limit, multipv=None):
+    def analyse(self, board, limit, multipv=None, root_moves=None):
         self.calls += 1
-        ranked = self._ranked(board)
+        ranked = self._ranked(board, root_moves)
         infos = []
         for mate, key, s, mv in ranked[: (multipv or 1)]:
             score = chess.engine.Mate(1) if mate else chess.engine.Cp(s)

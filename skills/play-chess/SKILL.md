@@ -12,7 +12,7 @@ User request: $ARGUMENTS
 
 ## Start
 
-1. Confirm setup (engine configured). If not, set it up per the shared file.
+1. Confirm setup (engine configured). **Stockfish is mandatory here**: it is both the opponent and the only reference for coaching. If it isn't available, say so and stop. Never "play" by choosing the opponent's moves yourself, and never coach or rate a move from your own judgement (the evidence rule in the shared skill).
 2. Read `chess_data/progress.md` (if it exists), run `stats`, and skim `chess_data/training_plan.md` if `/init-chess` created it (if the plan names a current focus, such as an opening to play out or a weakness to practise, offer to aim the game at it). With no history at all, mention once that `/init-chess` can build a profile and training plan from their games and books. Pick the user's **one or two weakest recurring topics** (ignore topics with fewer than 2 entries) and tell them up front: "Last time `back-rank mates` and `hanging pieces` were your weak spots: I'll nudge you on those." If there's no history, say it's a fresh start.
 3. Settle colour and engine Elo from the arguments; ask only for what's missing (defaults: ask colour, Elo 1500 or the configured one). Suggest an Elo a little below the user's rating if they've mentioned one, so the game is winnable but not trivial.
 4. `new --color ... --elo ...`, then `engine` if the engine moves first. Give the image path.
@@ -24,7 +24,7 @@ User request: $ARGUMENTS
 3. Act on the verdict:
    - **best / good**: carry on. A short word of praise now and then, not every move. If the move was especially clever (a verdict of "best" in a tricky position), say why it works.
    - **inaccuracy, mistake or blunder**: do **not** reveal the better move. Say what went wrong in general terms using the hint ladder (level 1 first), and offer `undo 1` so they can try again (the engine hasn't replied yet, so one half-move is enough). If they retry, `move` again and re-run `review`. If they decline, explain briefly and move on. Escalate the ladder only if they ask or retry and miss again. Once the user commits to the final move or gives up, reveal the best move and the reason (from `review`/`eval`) and `log` the topic as `wrong`.
-4. `engine` for the reply. Report it in SAN with one line on its idea or threat, but only when it matters (a threat the user must answer, a trap, a notable plan). Verify any threat you mention with `eval`, not intuition.
+4. `engine` for the reply. Report it in SAN with one line on its idea or threat, but only when it matters (a threat the user must answer, a trap, a notable plan). Verify any threat you mention with `eval`, never from your own judgement. If this game was started from a book position (`new --fen ... --source "<book>"`) and the book states the solution, grade that first move with `verdict --book ... --user <move>` instead of `review`: the book outranks the engine.
 5. Remind about weaknesses **in context**: if the position touches a known weak topic (e.g. their king is exposed and `back-rank mates` is on their list), ask a nudging question ("check your back rank before you play that") rather than stating the answer. Use `show --squares ... --out analysis.png` to point at the relevant squares if it helps. Don't nag: at most one reminder per move, and only when it's relevant.
 6. Give the image path, then ask for their move.
 

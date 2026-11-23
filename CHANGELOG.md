@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Evidence rule** in all skills: Claude never evaluates a position, move, exercise, puzzle, example or game
+  without a reference. The reference is, in order, a book that explicitly states the best continuation, then
+  Stockfish; with neither it refuses to evaluate. **When the book and the engine disagree, the book wins.**
+- `chess_ops.py verdict`: applies the rule mechanically. It validates a book line for legality, cross-checks it with
+  the engine (`AGREE` / `AGREE (close)` / `CONFLICT`), always answers with the book's move when one is given,
+  grades the user's move against the reference, and exits with `NO REFERENCE` when it has neither a book line nor
+  an engine.
+
+### Changed
+- `/teach-chess` no longer verifies the book against the engine and no longer tells the user a book was wrong when
+  Stockfish disagrees; the book's line is the answer. `/play-chess` requires Stockfish (it is the opponent and the
+  only reference). `/analyze-chess` lets a book that covers the position outrank the engine. `pick` labels a PGN
+  game move as "the move played", not as a verified best move.
+
 ## [0.1.0] - 2026-11-23
 
 First release.

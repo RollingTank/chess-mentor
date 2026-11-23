@@ -244,7 +244,7 @@ class TestSetup:
 
 # ------------------------------------------------------------------ the CLI shell
 COMMANDS = ["setup", "new", "move", "engine", "show", "eval", "review", "analyze", "history", "discover", "profile",
-            "undo", "pick", "library", "log", "stats"]
+            "verdict", "undo", "pick", "library", "log", "stats"]
 
 
 class TestCliShell:

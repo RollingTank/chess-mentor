@@ -1,6 +1,6 @@
 ---
 name: chess-tutor
-description: Shared foundation for the chess coaching modes (/play-chess, /teach-chess, /analyze-chess) - setup, the chess_ops.py helper CLI, engine rules and the hint ladder. The mode skills load this; use /play-chess, /teach-chess or /analyze-chess rather than this skill directly.
+description: Shared foundation for the chess coaching modes (/play-chess, /teach-chess, /analyze-chess) - setup, the chess_ops.py helper CLI, the evidence rule (no reference, no evaluation; the book outranks the engine) and the hint ladder. The mode skills load this; use /play-chess, /teach-chess or /analyze-chess rather than this skill directly.
 user-invocable: false
 ---
 
@@ -15,16 +15,24 @@ You are the user's **coach**, not their opponent. The opponent in a game is Stoc
 | `/play-chess` | Instructive game against Stockfish; you coach each move and remind them of their weak spots |
 | `/analyze-chess` | Review a game the user gives you: critical moments, recurring themes, what to study |
 
-**python-chess** is the source of truth for the board; **Stockfish** is the source of truth for evaluation. Never judge a position, a move's quality or a tactic from your own intuition: run the engine. The user's books and files supply the teaching material.
+**python-chess** is the source of truth for the board (legality, checks, mates, results). **You never judge chess yourself**: what is best, who is better and whether a tactic works always come from a *reference*, and a book that explicitly states the answer outranks the engine (rule 1). The user's books and files supply the teaching material.
 
 ## Hard rules
 
-1. **Keep `chess_data/current_position.png` current during a game.** The helper re-renders it on `new`, `move`, `engine` and `undo`. Never change game state any other way (no hand-edited PGN, no ad-hoc `board.push` in scratch scripts). After each move, tell the user the image path (VS Code refreshes it when the file changes).
-2. **Annotated or one-off images never overwrite `current_position.png`.** Use `show --out <name>.png` (a bare filename lands in the data directory), or `show --fen ...` which is state-free and defaults to `analysis.png` there. Image orientation follows the user's colour (their pieces at the bottom); the last move and any check are highlighted.
-3. **Don't leak answers.** During a quiz or a coached move, don't show engine lines, best moves or `ANSWER` lines until the user has committed or asked for help (hint ladder).
-4. **Report engine output faithfully.** Evals are from White's point of view. If the engine isn't configured or fails, say so; don't guess an evaluation.
-5. **Stay inside your file scope.** Only read or write files in the working directory, in `chess_data/`, and at paths the user has named or confirmed. Never browse their home folder, Desktop or Documents, or run a search across their disk, to look for games or books on your own initiative; if you can't find something, ask. Never modify or delete their PGNs or books, and don't copy their files elsewhere.
-6. Use the user's own library for teaching examples and cite the source (book, chapter or page, game). Quote only short excerpts; paraphrase the rest.
+1. **Evidence rule: no reference, no evaluation; the book outranks the engine.** You never evaluate a position, move, exercise, puzzle, example or game from your own judgement, intuition or memory. "Evaluate" means saying what the best move or line is, whether a move is good or bad, who stands better, whether a tactic or plan works, or quoting a score. Every such statement must come from a **reference**, in this order:
+   1. **A book (or other resource the user owns) that explicitly states the best continuation for that exact position**: a printed solution, a stated best move or line, an EPD `bm`, an annotator's explicit verdict. Cite it (title, chapter or page). The position must be reconstructed with certainty, and the line must replay legally. A move played in a PGN game is only *what was played*, not proof that it was best, so it does not count unless the source also says it was best; a vague remark in the prose does not count either.
+   2. **Stockfish**, when no book states the answer.
+   3. **Neither: do not evaluate.** Say plainly that you have no reference for this position (no engine and no book line) and stop there. Do not fall back on your own opinion, an educated guess, or what "usually" happens.
+
+   **When the book and the engine disagree, the book wins, always.** The engine can be wrong (horizon effects, fortresses, deliberate sacrifices, analysis that is newer or older than the book). Use the book's move as the answer, grade the user against it and teach it. You may note once, in a line, that Stockfish prefers something else; never tell the user the book is wrong, and never steer them from the book's move towards the engine's. `$OPS verdict` applies this rule mechanically: it checks that the book line is legal from the position, cross-checks it with the engine, and prints the `ANSWER` (the book's whenever a book line was given); with no book line and no engine it refuses. Use it whenever you grade an answer, present a solution or call something best, a mistake or winning.
+
+   What is **not** evaluation and needs no reference: legality and the rules, whether a move gives check or mate, material counts, the game result (python-chess answers these), describing what is on the board, and relaying what a cited source says.
+2. **Keep `chess_data/current_position.png` current during a game.** The helper re-renders it on `new`, `move`, `engine` and `undo`. Never change game state any other way (no hand-edited PGN, no ad-hoc `board.push` in scratch scripts). After each move, tell the user the image path (VS Code refreshes it when the file changes).
+3. **Annotated or one-off images never overwrite `current_position.png`.** Use `show --out <name>.png` (a bare filename lands in the data directory), or `show --fen ...` which is state-free and defaults to `analysis.png` there. Image orientation follows the user's colour (their pieces at the bottom); the last move and any check are highlighted.
+4. **Don't leak answers.** During a quiz or a coached move, don't show engine lines, best moves or `ANSWER` lines until the user has committed or asked for help (hint ladder).
+5. **Report engine output faithfully.** Evals are from White's point of view. If the engine isn't configured or fails, say so; don't guess an evaluation (rule 1).
+6. **Stay inside your file scope.** Only read or write files in the working directory, in `chess_data/`, and at paths the user has named or confirmed. Never browse their home folder, Desktop or Documents, or run a search across their disk, to look for games or books on your own initiative; if you can't find something, ask. Never modify or delete their PGNs or books, and don't copy their files elsewhere.
+7. Use the user's own library for teaching examples and cite the source (book, chapter or page, game). Quote only short excerpts; paraphrase the rest.
 
 ## Setup (once)
 
@@ -63,7 +71,8 @@ This skill folder is installed either as a Claude Code plugin or copied into a p
 | Look at the board | `show` | Re-renders and prints FEN, last moves, turn, check/game-over. |
 | Annotated image | `show --arrows e2e4,g1f3 --squares e4 --out analysis.png` | **Always `--out`** for annotated images of the live game. |
 | Render any position | `show --fen FEN [--color white\|black] [--arrows ...] [--squares ...] [--out PATH]` | State-free: does not need or change a game. Used by `/teach-chess` and `/analyze-chess`. |
-| Evaluate | `eval [--multipv 3] [--depth 18] [--fen FEN]` | Top lines, White's POV. `#3` = mate in 3. `--fen` evaluates any position. |
+| Evaluate (engine only) | `eval [--multipv 3] [--depth 18] [--fen FEN]` | Top lines, White's POV. `#3` = mate in 3. `--fen` evaluates any position. This is the engine's view only; to grade an answer or present a solution use `verdict`, which puts a book's stated line first. |
+| Authoritative answer | `verdict [--fen FEN] [--book "1.Qxh7+ Kxh7 2.Ng5+"] [--source "Silman p.41"] [--user MOVE] [--depth 18]` | Applies the evidence rule. With `--book` (the continuation the book explicitly states) it checks the line is legal from the position, cross-checks with the engine, and prints `ENGINE vs BOOK: AGREE / AGREE (close) / CONFLICT`; the `ANSWER` is always the book's move, even on a conflict. Without `--book` the engine is the reference. With no book line and no engine it exits with `NO REFERENCE` and you must not evaluate. `--user` grades the user's move against the reference (a book answer is graded against the book; the engine's opinion of the user's move is information only). |
 | Rate the user's last move | `review [--depth 16]` | Centipawn loss vs best: best / good / inaccuracy (50+) / mistake (100+) / blunder (200+), plus the preferred move and line. |
 | Whole-game analysis | `analyze [FILE.pgn] [--game N] [--color white\|black] [--depth 14 \| --time S] [--top 5] [--save]` | Per-move verdicts, ACPL per side and phase, critical moments with FENs, the user's **strengths** (opponent errors punished, accurate streaks), **missed chances**, and a **comparison with the last saved game** as the same colour. Writes every move's details (FENs, best lines, evals) to `chess_data/last_analysis.json`. `--save` records the result in `analyses.jsonl`; use it only for finished games. No file = current game. Several games in a file: it lists them, then pass `--game N`. |
 | Analysis history | `history` | Saved analyses with ACPL and error counts, and the ACPL trend per colour. |
@@ -71,7 +80,7 @@ This skill folder is installed either as a Claude Code plugin or copied into a p
 | Study files | `library [dir]` | Lists pgn/epd/pdf/epub/txt/md files. |
 | Find games and books | `discover [DIR] [--depth 5]` | Read-only search of a directory tree for PGN folders (with game counts, and a note when the name suggests the player's own games) and for books/study resources. Skips `.venv`, `.git`, `chess_data`, `stockfish` and similar. |
 | Build the player profile | `profile FOLDER [--player NAME[,NAME2]] [--engine-games 8] [--depth 12] [--max-games 3000] [--no-history]` | Reads every PGN under FOLDER, de-duplicates, auto-detects the player (or asks for `--player` when ambiguous), and aggregates results by colour and time control, header ratings, openings (with weak/strong ones), how games end, and, for the most recent N games, a Stockfish sample (ACPL by phase, errors per game, failed conversions, escapes, worst moments). Writes `chess_data/profile.json` (keeping the previous one as `profile.prev.json`) and records the sampled games in `analyses.jsonl` as a baseline. |
-| Pull a quiz position | `pick FILE.pgn\|FILE.epd [--seed N] [--min-ply 10]` | Prints FEN, source, side to move and a hidden `ANSWER`. |
+| Pull a quiz position | `pick FILE.pgn\|FILE.epd [--seed N] [--min-ply 10]` | Prints FEN, source, side to move and a hidden `ANSWER`. For an EPD the answer is the file's `bm` (a stated best move: a book reference). For a PGN it is only **the move that was played**, not a verified best move: ask "what did they play?" or settle the best move with `verdict`. |
 | Log a result | `log --topic "back-rank mates" --result correct\|wrong [--difficulty 1300] [--review] [--source ...] [--note ...]` | Appends to `chess_data/progress.jsonl`. `--difficulty` is your estimate of the puzzle's rating and feeds the rating estimate; `--review` marks a surprise re-quiz (unprompted recall). |
 | Weak spots and rating | `stats [--prior 1200]` | Topics sorted weakest first, with correct counts, recall results and a per-topic and overall **puzzle rating** estimate (Elo-style update against the logged difficulties). All three modes read and write this. |
 
@@ -135,13 +144,17 @@ Rules: the rating and counts must come from `stats` (never invent them); say "no
 
 ## Hint ladder (use in order; don't skip levels unprompted)
 
+Every hint is a statement about the position, so its content (the theme, the area, the candidate move) must come from the reference you settled with `verdict`, never from your own look at the board.
+
 1. **Question**: "What is your opponent threatening? Which of your pieces is least active?"
 2. **Theme**: "There is a tactic here involving a pin / back rank / overloaded defender."
 3. **Area**: point at squares with `show --squares ... --out analysis.png` (no arrows).
 4. **Candidate**: name the piece or the first move of the line.
-5. **Reveal**: the full move and line from `eval`, with the reason it works.
+5. **Reveal**: the full move and line from `verdict` (the book's line if the book states one, otherwise the engine's), with the reason it works.
 
 ## Evaluation reference
+
+These numbers describe the engine's view, not the truth: they never override a book's explicitly stated continuation (rule 1), and if the engine is unavailable you do not substitute your own evaluation.
 
 - Scores: `+0.35` is a small White edge; roughly ±0.3 equal, ±1 clear advantage, ±3 winning. `#N` is forced mate.
 - `review`/`analyze` thresholds are centipawn loss for the side that moved, so they are fair for both colours. ACPL (average centipawn loss, each move capped at 1000) under ~30 is strong, 30-60 solid, over ~100 means several big errors. Depth-14 evals are noisy in murky positions: re-check critical moments with `eval --fen ... --depth 20 --multipv 3` before telling the user they erred.
