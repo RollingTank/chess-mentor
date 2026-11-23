@@ -1,5 +1,7 @@
 # Chess Mentor for Claude Code
 
+[![CI](https://github.com/RollingTank/chess-mentor/actions/workflows/ci.yml/badge.svg)](https://github.com/RollingTank/chess-mentor/actions/workflows/ci.yml)
+
 A set of Claude Code skills that turn Claude into a chess **coach** (not your opponent). Stockfish does the
 playing and the evaluating; Claude does the teaching.
 
@@ -17,7 +19,7 @@ boards (`current_position.png`) that update after every move; keep the file open
 ## Requirements
 
 - [Claude Code](https://claude.com/claude-code)
-- **Python 3.9+** (tested on 3.11)
+- **Python 3.10+** (tested on 3.11; the PNG renderer `resvg-py` does not support older versions)
 - **Stockfish**, downloaded separately from <https://stockfishchess.org/download/>. It is not bundled.
 - Optional: your own chess books and files for `/teach-chess`.
 
@@ -202,9 +204,33 @@ pytest -m engine        # only the tests that run a real Stockfish (about 2 minu
 | Unit (`test_units.py`) | Pure functions: score formatting, move parsing, verdict thresholds, rating maths, profile helpers, rendering |
 | Component (`test_cli_game.py`, `test_analyze.py`, `test_init.py`, `test_progress.py`) | Every CLI command end to end in a temporary data folder, with a deterministic stub engine: the board image always matches the game, rejected moves change nothing, `analyze`/`history` comparisons, `discover` and `profile` on realistic folders, `log`/`stats`, `setup` |
 | Integration (`test_stockfish.py`) | The same flows against a real Stockfish: full games, mate detection, move review, `analyze`, `profile` with an engine sample. Stockfish is found through `STOCKFISH_PATH`, your `PATH`, or a `stockfish/` folder in the repo |
-| Contract (`test_contract.py`) | Skills, manifests, docs and code agree: every `$OPS` command and flag a skill mentions exists, links resolve, versions match the changelog, the safety rules are still in the skills, no personal paths in the repo, Python 3.9-compatible syntax |
+| Pipeline (`test_pipeline.py`) | The CI/CD workflows themselves (pinned actions, least-privilege permissions, no risky triggers, the Python/OS matrix) and the release script |
+| Contract (`test_contract.py`) | Skills, manifests, docs and code agree: every `$OPS` command and flag a skill mentions exists, links resolve, versions match the changelog, the safety rules are still in the skills, no personal paths in the repo, Python 3.10-compatible syntax |
 
 Tests run in pytest's temporary folders and never read or write your own `chess_data/`.
+
+### CI/CD
+
+GitHub Actions (`.github/workflows/`) runs on every push to the default branch and on every pull request:
+
+| Job | What it does |
+|---|---|
+| Tests | `pytest -m "not engine"` on Ubuntu, Windows and macOS with Python 3.10 (the minimum) and 3.13 |
+| Integration | `pytest -m engine` on Ubuntu with a real Stockfish installed from apt |
+| Plugin | `claude plugin validate .` with a pinned Claude Code CLI |
+| All checks passed | One status that depends on the others; use it as the required check for branch protection |
+
+**Releasing** is driven by tags. To cut a release:
+
+1. Bump `version` in `.claude-plugin/plugin.json` and `.claude-plugin/marketplace.json`.
+2. Move the notes in `CHANGELOG.md` under a `## [X.Y.Z] - date` heading.
+3. Merge to the default branch, then `git tag vX.Y.Z && git push origin vX.Y.Z`.
+
+The release workflow first checks that the tag is on the default branch, that the tag, both manifests and the
+changelog agree (`python .github/scripts/release_notes.py vX.Y.Z` runs the same check locally), and that the
+tests pass. Only then does it publish a GitHub Release with the changelog section as its notes and a
+`chess-mentor-skills-X.Y.Z.zip` bundle of the `skills/` folders for people who copy them into `.claude/skills/`.
+Dependabot opens weekly PRs for the workflow actions and the pinned Python dependencies; CI runs the full suite on each.
 
 ## License
 

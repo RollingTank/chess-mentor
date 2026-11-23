@@ -10,7 +10,7 @@
 Every command that changes the position (new, move, engine, undo) re-renders
 <data_dir>/current_position.png, so the image on disk always matches the game.
 
-Run it with any Python 3.9+ that has the packages from ../requirements.txt, e.g.
+Run it with any Python 3.10+ that has the packages from ../requirements.txt, e.g.
     python3 chess_ops.py move e4
 State lives in <data_dir> (default ./chess_data, or $CHESS_DATA_DIR): config.json,
 game.pgn, current_position.png, progress.jsonl, last_analysis.json, analyses.jsonl.

@@ -159,7 +159,7 @@ class TestSlashCommands:
         for skill in COMMAND_SKILLS:
             assert f"`/{skill}`" in text and f"/chess-mentor:{skill}" in text
         assert "/plugin install" in text and ".claude/skills" in text and "CHESS_DATA_DIR" in text
-        assert "Python 3.9" in text and "stockfishchess.org" in text
+        assert "Python 3.10" in text and "stockfishchess.org" in text
 
 
 # ------------------------------------------------------------------ safety rules stay in the skills
@@ -241,11 +241,12 @@ class TestPackaging:
         for entry in ("chess_data/", "__pycache__/", "/.venv", "/stockfish"):
             assert entry in lines
 
-    def test_script_is_python39_compatible(self):
-        src = read(SCRIPT)
-        ast.parse(src, feature_version=(3, 9))
-        assert not re.search(r"^\s*match\s+\S+.*:\s*$", src, re.M)
-        assert not re.search(r":\s*\w+\s*\|\s*None\b", src), "PEP 604 unions in annotations need Python 3.10"
+    def test_script_syntax_matches_the_minimum_python(self):
+        """resvg-py (pinned) needs Python 3.10+, so that is the documented minimum; the script must not need newer."""
+        ast.parse(read(SCRIPT), feature_version=(3, 10))
+
+    def test_documented_minimum_python_is_consistent(self):
+        assert "Python 3.10+" in read(ROOT / "README.md") and "Python 3.10+" in read(SHARED) and "Python 3.10+" in read(SCRIPT)
 
     def test_script_compiles_without_warnings(self):
         import py_compile
