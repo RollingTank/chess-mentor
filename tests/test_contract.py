@@ -138,6 +138,70 @@ class TestSkillsMatchTheCli:
         assert "inaccuracy (50+)" in text and "mistake (100+)" in text and "blunder (200+)" in text
 
 
+class TestEvidenceRule:
+    """No reference, no evaluation; a book's stated continuation outranks the engine."""
+
+    def text(self, skill):
+        return read(SKILLS / skill / "SKILL.md")
+
+    def test_shared_skill_states_the_rule_and_the_priority_order(self):
+        text = self.text("chess-tutor")
+        for needle in ("Evidence rule: no reference, no evaluation; the book outranks the engine",
+                       "never evaluate a position, move, exercise, puzzle, example or game from your own judgement",
+                       "A book (or other resource the user owns) that explicitly states the best continuation",
+                       "**Stockfish**, when no book states the answer",
+                       "**Neither: do not evaluate.**",
+                       "the book wins, always", "The engine can be wrong",
+                       "never tell the user the book is wrong",
+                       "A move played in a PGN game is only *what was played*",
+                       "`$OPS verdict` applies this rule mechanically"):
+            assert needle in text, needle
+
+    def test_rule_names_what_is_not_evaluation(self):
+        assert "needs no reference" in self.text("chess-tutor") and "legality and the rules" in self.text("chess-tutor")
+
+    def test_every_skill_that_grades_or_presents_answers_uses_verdict(self):
+        for skill in ("teach-chess", "analyze-chess", "play-chess", "init-chess"):
+            assert "verdict" in self.text(skill), skill
+
+    def test_teach_chess_puts_the_book_first(self):
+        text = self.text("teach-chess")
+        for needle in ("The book outranks the engine", "No reference, no example", "the book's move whenever the book states one",
+                       "never call the book wrong", "Never challenge an answer that matches the book with an engine objection",
+                       "don't add verdicts of your own"):
+            assert needle in text, needle
+
+    def test_play_chess_requires_the_engine(self):
+        text = self.text("play-chess")
+        assert "Stockfish is mandatory here" in text and "never coach or rate a move from your own judgement" in text
+        assert "the book outranks the engine" in text
+
+    def test_analyze_chess_lets_a_book_override_the_engine(self):
+        text = self.text("analyze-chess")
+        assert "that book is the reference and it outranks the engine" in text
+        assert "don't judge the move: say you have no reference" in text
+
+    def test_init_chess_does_not_judge_without_an_engine(self):
+        assert "without an engine you must skip this step rather than judge the moves yourself" in self.text("init-chess")
+
+    def test_old_engine_over_book_wording_is_gone(self):
+        for skill in sorted(EXPECTED_SKILLS):
+            text = self.text(skill)
+            for stale in ("Always verify the book's claim with the engine", "isn't engine-approved",
+                          "source of truth for evaluation", "not an error to hide", "Never judge a position, a move's quality"):
+                assert stale not in text, f"{skill} still says {stale!r}"
+
+    def test_pick_does_not_present_a_played_move_as_the_best_move(self):
+        assert "only **the move that was played**" in self.text("chess-tutor")
+
+    def test_readme_explains_the_rule_to_users(self):
+        text = read(ROOT / "README.md")
+        assert "How Claude decides what is right" in text and "book" in text.split("How Claude decides what is right")[1][:900]
+
+    def test_changelog_records_the_change(self):
+        assert "verdict" in read(ROOT / "CHANGELOG.md")
+
+
 class TestSlashCommands:
     ALL = {f"/{s}" for s in COMMAND_SKILLS}
 

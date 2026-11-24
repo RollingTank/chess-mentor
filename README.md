@@ -139,6 +139,22 @@ compares with last time, then goes through the game in order. At each key moment
 what you were thinking *before* revealing what the engine saw. Say *skip*, *next* or *stop* any time. It ends
 with what repeated from earlier games, what you fixed, and 2-3 concrete things to work on.
 
+### How Claude decides what is right
+
+Claude never judges a position, move, puzzle, example or game from its own opinion. Every verdict needs a
+**reference**, in this order:
+
+1. **Your book**, when it explicitly states the best continuation for that exact position (a printed solution, a
+   stated best line, an EPD `bm`). Claude cites it.
+2. **Stockfish**, when no book states the answer.
+3. **Neither**: Claude says it has no reference and does not evaluate. It will not guess.
+
+**If the book and the engine disagree, the book wins.** The engine can be wrong, so Claude uses the book's move as
+the answer and grades you against it; at most it mentions once that Stockfish prefers something else. A move played
+in a PGN game counts as "what was played", not as proof it was best. `chess_ops.py verdict` applies this rule
+mechanically: it checks that the book's line is legal from the position, cross-checks it with the engine, and always
+answers with the book's move when you supply one.
+
 ## Where your data lives
 
 Everything is stored in one folder, `chess_data/`, in the directory where Claude is running (set the
